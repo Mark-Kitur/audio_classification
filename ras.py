@@ -72,7 +72,7 @@ try:
 
         box, clas_name,confidence= detect_objects(bgr)
 
-        if confidence>0.75:
+        if confidence>0.65:
             if clas_name =="C":
                 GPIO.output(led_pin,GPIO.HIGH)
                 time.sleep(5)
@@ -90,7 +90,7 @@ try:
             cv2.putText(bgr, clas_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
         else:
-            cv2.putText(bgr, "No Object Detected", (10, 20),cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            cv2.putText(bgr, "poor image", (10, 20),cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
 
         cv2.imshow("Object Detection", bgr)
