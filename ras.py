@@ -3,6 +3,15 @@ import subprocess
 import numpy as np
 import tensorflow as tf
 import pickle
+import time
+import RPi.GPIO as GPIO
+
+led_pin = 17
+GPIO.setmode(GPIO.BCM)
+
+# Set the pin as output
+GPIO.setup(led_pin, GPIO.OUT)
+
 
 # Load label names
 with open("unique_labels.plk", 'rb') as f:
@@ -55,14 +64,21 @@ try:
     while True:
         raw = proc.stdout.read(frame_size)
         if len(raw) < frame_size:
-            print("⚠️ Incomplete frame captured")
+            print("Incomplete frame captured")
             break
 
         yuv = np.frombuffer(raw, dtype=np.uint8).reshape((frame_height * 3 // 2, frame_width))
         bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
 
         box, clas_name,confidence= detect_objects(bgr)
-        if confidence>0.5:
+
+        if confidence>0.75:
+            if clas_name =="C":
+                GPIO.output(led_pin,GPIO.HIGH)
+                time.sleep(5)
+                
+            elif clas_name =="O":
+                GPIO.output(led_pin,GPIO.LOW)
             xmin, ymin,xmax,ymax= box
             x1= int(xmin*frame_width)
             y1= int(ymin*frame_height)
@@ -82,4 +98,5 @@ try:
             break
 finally:
     proc.terminate()
+    GPIO.cleanup()
     cv2.destroyAllWindows()
