@@ -1,89 +1,77 @@
+import cv2
+import subprocess
 import numpy as np
 import tensorflow as tf
-import cv2
-import pickle
-import time
 
-# === Load Labels ===
-with open("unique_labels.plk", 'rb') as t:
-    unique_labels = pickle.load(t)
-
-# === Load TFLite Model ===
-interpreter = tf.lite.Interpreter(model_path='sign_lang_1.tflite')
+# Load the TFLite model
+interpreter = tf.lite.Interpreter(model_path="detect.tflite")
 interpreter.allocate_tensors()
 
-# Get model input/output details
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# === Camera Setup ===
-cam = cv2.VideoCapture(0)
-if not cam.isOpened():
-    print("❌ Error: Could not open camera.")
-    exit()
+# Get input shape
+input_shape = input_details[0]['shape']
+input_height, input_width = input_shape[1], input_shape[2]
 
-# Get camera resolution
-frame_width = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
-frame_height = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+# Start libcamera-vid with raw YUV420 stream piped to stdout
+cmd = [
+    "libcamera-vid",
+    "--width", "640",
+    "--height", "480",
+    "--nopreview",
+    "--codec", "yuv420",
+    "-t", "0",  # Run indefinitely
+    "-o", "-"
+]
 
-# Video writer to save output
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-out = cv2.VideoWriter("output.mp4", fourcc, 20.0, (frame_width, frame_height))
+proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=10**8)
 
-# === Helper Function to Map Prediction ===
-def get_label(prob):
-    return unique_labels[np.argmax(prob)]
+frame_width = 640
+frame_height = 480
+frame_size = frame_width * frame_height * 3 // 2  # YUV420
 
-# === Main Loop ===
-print("✅ Starting video stream. Press 'q' to quit.")
-while True:
-    ret, frame = cam.read()
-    if not ret:
-        print('❌ Error: Failed to capture frame.')
-        break
+def set_input_tensor(image):
+    image = cv2.resize(image, (input_width, input_height))
+    input_data = np.expand_dims(image, axis=0)
+    input_data = input_data.astype(np.uint8)  # or float32 depending on model
+    interpreter.set_tensor(input_details[0]['index'], input_data)
 
-    # Resize to model input size (assumed 480x480 here)
-    resized = cv2.resize(frame, (480, 480))
-    input_tensor = resized.astype(np.float32) / 255.0
-    input_tensor = np.expand_dims(input_tensor, axis=0)
-
-    # Run inference
-    interpreter.set_tensor(input_details[0]['index'], input_tensor)
+def detect_objects(image):
+    set_input_tensor(image)
     interpreter.invoke()
-    pred_box = interpreter.get_tensor(output_details[0]['index'])
-    pred_prob = interpreter.get_tensor(output_details[1]['index'])
+    boxes = interpreter.get_tensor(output_details[0]['index'])[0]  # Bounding boxes
+    classes = interpreter.get_tensor(output_details[1]['index'])[0]  # Class index
+    scores = interpreter.get_tensor(output_details[2]['index'])[0]  # Confidence
+    return boxes, classes, scores
 
-    # Postprocessing
-    pred_class = get_label(pred_prob)
-    confidence = np.max(pred_prob)
-    original_height, original_width, _ = frame.shape
+try:
+    while True:
+        raw = proc.stdout.read(frame_size)
+        if len(raw) < frame_size:
+            break
 
-    if confidence > 0.5:
-        xmin, ymin, xmax, ymax = pred_box[0]
-        x1 = int(xmin * original_width)
-        y1 = int(ymin * original_height)
-        x2 = int(xmax * original_width)
-        y2 = int(ymax * original_height)
+        yuv = np.frombuffer(raw, dtype=np.uint8).reshape((frame_height * 3 // 2, frame_width))
+        bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
 
-        # Draw bounding box and label
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(frame, f"{pred_class} - {confidence:.2f}",
-                    (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6, (0, 0, 255), 2)
-    else:
-        cv2.putText(frame, "No Object Detected", (10, 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+        # Run detection
+        boxes, classes, scores = detect_objects(bgr)
 
-    # Save and show frame
-    out.write(frame)
-    cv2.imshow('Real-Time Detection', frame)
+        # Draw boxes above threshold
+        for i in range(len(scores)):
+            if scores[i] > 0.5:
+                y_min, x_min, y_max, x_max = boxes[i]
+                start_point = (int(x_min * frame_width), int(y_min * frame_height))
+                end_point = (int(x_max * frame_width), int(y_max * frame_height))
+                cv2.rectangle(bgr, start_point, end_point, (0, 255, 0), 2)
+                label = f"ID:{int(classes[i])} {scores[i]:.2f}"
+                cv2.putText(bgr, label, (start_point[0], start_point[1] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    # Press 'q' to quit
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        cv2.imshow("Live Object Detection", bgr)
 
-# === Cleanup ===
-cam.release()
-out.release()
-cv2.destroyAllWindows()
-print("🛑 Video stream ended.")
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+finally:
+    proc.terminate()
+    cv2.destroyAllWindows()
