@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 # Load the TFLite model
-interpreter = tf.lite.Interpreter(model_path="detect.tflite")
+interpreter = tf.lite.Interpreter(model_path="sign_lang_1.tflite")
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
