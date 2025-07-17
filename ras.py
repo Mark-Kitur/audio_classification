@@ -2,6 +2,11 @@ import cv2
 import subprocess
 import numpy as np
 import tensorflow as tf
+import pickle
+
+with open("unique_labels.plk" , 'rb') as f:
+    unique_labels = pickle.load(f)
+
 
 # Load the TFLite model
 interpreter = tf.lite.Interpreter(model_path="sign_lang_1.tflite")
@@ -32,19 +37,21 @@ frame_height = 480
 frame_size = frame_width * frame_height * 3 // 2  # YUV420
 
 def set_input_tensor(image):
-    image = cv2.resize(image, (input_width, input_height))
-    input_data = np.expand_dims(image, axis=0)
+    image = cv2.resize(image, (480, 480))
     input_data = input_data.astype(np.float32) / 255.0
-     # or float32 depending on model
+    input_data = np.expand_dims(image, axis=0)
+    # or float32 depending on model
     interpreter.set_tensor(input_details[0]['index'], input_data)
+
 
 def detect_objects(image):
     set_input_tensor(image)
     interpreter.invoke()
     boxes = interpreter.get_tensor(output_details[0]['index'])[0]  # Bounding boxes
     classes = interpreter.get_tensor(output_details[1]['index'])[0]  # Class index
+    class_pred = unique_labels[np.argmax(classes)]
     scores = np.max(classes)  # Confidence
-    return boxes, classes, scores
+    return boxes, class_pred, scores
 
 try:
     while True:
