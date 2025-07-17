@@ -38,8 +38,8 @@ frame_size = frame_width * frame_height * 3 // 2  # YUV420
 
 def set_input_tensor(image):
     image = cv2.resize(image, (480, 480))
-    input_data = input_data.astype(np.float32) / 255.0
-    input_data = np.expand_dims(image, axis=0)
+    input_data = image.astype(np.float32) / 255.0
+    input_data = np.expand_dims(input_data, axis=0)
     # or float32 depending on model
     interpreter.set_tensor(input_details[0]['index'], input_data)
 
