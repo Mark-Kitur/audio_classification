@@ -34,7 +34,8 @@ frame_size = frame_width * frame_height * 3 // 2  # YUV420
 def set_input_tensor(image):
     image = cv2.resize(image, (input_width, input_height))
     input_data = np.expand_dims(image, axis=0)
-    input_data = input_data.astype(np.uint8)  # or float32 depending on model
+    input_data = input_data.astype(np.float32) / 255.0
+     # or float32 depending on model
     interpreter.set_tensor(input_details[0]['index'], input_data)
 
 def detect_objects(image):
