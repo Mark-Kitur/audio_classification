@@ -43,7 +43,7 @@ def detect_objects(image):
     interpreter.invoke()
     boxes = interpreter.get_tensor(output_details[0]['index'])[0]  # Bounding boxes
     classes = interpreter.get_tensor(output_details[1]['index'])[0]  # Class index
-    scores = interpreter.get_tensor(output_details[2]['index'])[0]  # Confidence
+    # scores = interpreter.get_tensor(output_details[2]['index'])[0]  # Confidence
     return boxes, classes, scores
 
 try:
