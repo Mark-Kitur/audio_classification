@@ -6,7 +6,7 @@ import pickle
 import time
 import RPi.GPIO as GPIO
 
-led_pin = 17
+led_pin = 3
 GPIO.setmode(GPIO.BCM)
 
 # Set the pin as output
