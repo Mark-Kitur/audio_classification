@@ -67,14 +67,15 @@ try:
 
         # Draw boxes above threshold
         
-        if scores > 0.5:
-            y_min, x_min, y_max, x_max = boxes[0]
-            start_point = (int(x_min * frame_width), int(y_min * frame_height))
-            end_point = (int(x_max * frame_width), int(y_max * frame_height))
-            cv2.rectangle(bgr, start_point, end_point, (0, 255, 0), 2)
-            label = f"ID:{int(classes)} {scores:.2f}"
-            cv2.putText(bgr, label, (start_point[0], start_point[1] - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        for i in range(len(scores)):
+            if scores[i] > 0.5:
+                y_min, x_min, y_max, x_max = boxes[i]
+                start_point = (int(x_min * frame_width), int(y_min * frame_height))
+                end_point = (int(x_max * frame_width), int(y_max * frame_height))
+                cv2.rectangle(bgr, start_point, end_point, (0, 255, 0), 2)
+                label = f"ID:{int(classes[i])} {scores[i]:.2f}"
+                cv2.putText(bgr, label, (start_point[0], start_point[1] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         cv2.imshow("Live Object Detection", bgr)
 
