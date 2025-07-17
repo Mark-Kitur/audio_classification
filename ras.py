@@ -79,6 +79,7 @@ try:
                 
             elif clas_name =="O":
                 GPIO.output(led_pin,GPIO.LOW)
+                time.sleep(1)
             xmin, ymin,xmax,ymax= box
             x1= int(xmin*frame_width)
             y1= int(ymin*frame_height)
