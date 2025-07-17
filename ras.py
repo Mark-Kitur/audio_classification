@@ -46,8 +46,9 @@ def detect_objects(image):
     interpreter.invoke()
     boxes = interpreter.get_tensor(output_details[0]['index'])[0]
     classes = interpreter.get_tensor(output_details[1]['index'])[0]
-    scores = interpreter.get_tensor(output_details[2]['index'])[0]
-    return boxes, classes, scores
+    pred_class= unique_labels[np.argmax(classes)]
+    scores= np.max(classes)
+    return boxes, pred_class, scores
 
 # Main loop
 try:
@@ -60,19 +61,21 @@ try:
         yuv = np.frombuffer(raw, dtype=np.uint8).reshape((frame_height * 3 // 2, frame_width))
         bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_I420)
 
-        boxes, classes, scores = detect_objects(bgr)
+        box, clas_name,confidence= detect_objects(bgr)
+        if confidence>0.5:
+            xmin, ymin,xmax,ymax= box
+            x1= int(xmin*frame_width)
+            y1= int(ymin*frame_height)
+            x2= int(xmax*frame_width)
+            y2= int(ymax*frame_height)
 
-        for i in range(len(scores)):
-            if scores[i] > 0.5:
-                y_min, x_min, y_max, x_max = boxes[i]
-                start_point = (int(x_min * frame_width), int(y_min * frame_height))
-                end_point = (int(x_max * frame_width), int(y_max * frame_height))
-                cv2.rectangle(bgr, start_point, end_point, (0, 255, 0), 2)
-                
-                class_id = int(classes[i])
-                label = f"{unique_labels[class_id]}: {scores[i]:.2f}"
-                cv2.putText(bgr, label, (start_point[0], start_point[1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # Draw bounding box and label on the frame
+            cv2.rectangle(bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(bgr, clas_name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+        else:
+            cv2.putText(bgr, "No Object Detected", (10, 20),cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
 
         cv2.imshow("Object Detection", bgr)
         if cv2.waitKey(1) & 0xFF == 27:  # ESC to exit
